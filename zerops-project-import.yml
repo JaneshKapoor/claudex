@@ -1,0 +1,90 @@
+# Claudex — Zerops project import.
+#
+# Creates the whole stack in one shot:
+#   zcli project project-import zerops-project-import.yml
+#
+# Then push code to each runtime service:
+#   zcli push --serviceId <api>       --setup api
+#   zcli push --serviceId <worker>    --setup worker
+#   zcli push --serviceId <dashboard> --setup dashboard
+#
+# Cross-service env references (${db_connectionString} and friends) are resolved by
+# Zerops at container start, so no connection string is ever committed here.
+
+project:
+  name: claudex
+  tags:
+    - claudex
+    - hackathon
+
+services:
+  # ------------------------------------------------------------ Postgres
+  - hostname: db
+    type: postgresql@16
+    mode: NON_HA
+    priority: 100
+
+  # --------------------------------------------------- KeyDB (Redis API)
+  - hostname: cache
+    type: keydb@6
+    mode: NON_HA
+    priority: 100
+
+  # ---------------------------------------- S3-compatible object storage
+  - hostname: storage
+    type: object-storage
+    objectStorageSize: 2
+    objectStoragePolicy: private
+    priority: 100
+
+  # ----------------------------------------------------------- API
+  - hostname: api
+    type: nodejs@22
+    enableSubdomainAccess: true
+    minContainers: 1
+    maxContainers: 2
+    priority: 50
+    envSecrets:
+      # 64 random characters; the server derives a 256-bit AES key from it.
+      # Keep this value stable — rotating it invalidates every stored token.
+      CLAUDEX_ENCRYPTION_KEY: <@generateRandomString(<64>)>
+    envVariables:
+      NODE_ENV: production
+      DATABASE_URL: ${db_connectionString}
+      REDIS_URL: ${cache_connectionString}
+      S3_ENDPOINT: ${storage_apiUrl}
+      S3_BUCKET: ${storage_bucketName}
+      S3_ACCESS_KEY_ID: ${storage_accessKeyId}
+      S3_SECRET_ACCESS_KEY: ${storage_secretAccessKey}
+      CACHE_TTL_SECONDS: "1800"
+      # Fill these in after the subdomains exist (see docs/DEPLOY.md).
+      PUBLIC_BASE_URL: ""
+      DASHBOARD_URL: ""
+
+  # -------------------------------------------------------- Worker
+  - hostname: worker
+    type: nodejs@22
+    enableSubdomainAccess: false
+    minContainers: 1
+    maxContainers: 1
+    priority: 40
+    envSecrets:
+      # MUST be byte-identical to the API's key or stored tokens cannot be read.
+      CLAUDEX_ENCRYPTION_KEY: ${api_CLAUDEX_ENCRYPTION_KEY}
+    envVariables:
+      NODE_ENV: production
+      DATABASE_URL: ${db_connectionString}
+      REDIS_URL: ${cache_connectionString}
+      S3_ENDPOINT: ${storage_apiUrl}
+      S3_BUCKET: ${storage_bucketName}
+      S3_ACCESS_KEY_ID: ${storage_accessKeyId}
+      S3_SECRET_ACCESS_KEY: ${storage_secretAccessKey}
+      # 25 minutes — enough resolution for a 5-hour window without hammering.
+      POLL_INTERVAL_MS: "1500000"
+
+  # ----------------------------------------------------- Dashboard
+  - hostname: dashboard
+    type: nginx@1.22
+    enableSubdomainAccess: true
+    minContainers: 1
+    priority: 30

@@ -1,0 +1,236 @@
+/*
+  Claudex dashboard.
+
+  Deliberately shares the widget's design tokens so the phone and the browser read
+  as one product: one radius token, one bar height, threshold-driven bar colour,
+  and a palette capped at two accents plus a neutral.
+*/
+
+:root {
+  /* the single radius token — reused everywhere, never hand-tuned per card */
+  --radius: 16px;
+  --radius-bar: 999px;
+  --bar-height: 10px;
+  --card-pad: 20px;
+
+  /* one neutral + two accents. that is the entire palette. */
+  --neutral: #7c8798;
+  --accent-warn: #d9903f;
+  --accent-alert: #e0563a;
+
+  --bg: #0c0e12;
+  --card: #14171d;
+  --card-line: #232833;
+  --text: #eef1f6;
+  --text-dim: #98a1b0;
+  --track: #232833;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f4f5f8;
+    --card: #ffffff;
+    --card-line: #e3e6ec;
+    --text: #14171d;
+    --text-dim: #626b7a;
+    --track: #e7eaf0;
+    --neutral: #5f6a7b;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 24px 20px 48px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  max-width: 1080px;
+  margin-inline: auto;
+  /* tabular figures globally: percentages must never shift layout as they change */
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* ---- top bar ---- */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.brand { display: flex; align-items: center; gap: 12px; }
+
+.brand h1 { font-size: 20px; margin: 0; letter-spacing: -0.01em; }
+
+.brand-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--card);
+  border: 1px solid var(--card-line);
+  position: relative;
+}
+.brand-mark::after {
+  content: "";
+  position: absolute;
+  inset: 11px 5px;
+  border-radius: var(--radius-bar);
+  background: var(--accent-alert);
+}
+
+.topbar-actions { display: flex; align-items: center; gap: 10px; }
+
+.freshness { color: var(--text-dim); font-size: 13px; }
+
+.btn {
+  appearance: none;
+  border: 1px solid var(--card-line);
+  background: var(--card);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 7px 14px;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+}
+.btn:hover { border-color: var(--neutral); }
+.btn-quiet { color: var(--text-dim); }
+
+/* ---- settings ---- */
+
+.settings {
+  background: var(--card);
+  border: 1px solid var(--card-line);
+  border-radius: var(--radius);
+  padding: var(--card-pad);
+  margin-bottom: 24px;
+}
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+.settings label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--text-dim); }
+.settings input {
+  background: var(--bg);
+  border: 1px solid var(--card-line);
+  border-radius: 10px;
+  padding: 9px 12px;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+}
+.settings input:focus { outline: 2px solid var(--neutral); outline-offset: 1px; }
+.settings-actions { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+.note { color: var(--text-dim); font-size: 13px; margin: 12px 0 0; min-height: 1em; }
+
+/* ---- cards ---- */
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+/* every card: identical padding, identical radius, identical min-height */
+.card {
+  background: var(--card);
+  border: 1px solid var(--card-line);
+  border-radius: var(--radius);
+  padding: var(--card-pad);
+  min-height: 176px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.card-title { font-size: 16px; font-weight: 600; margin: 0; }
+.card-state { font-size: 12px; color: var(--text-dim); }
+
+.meters { display: flex; flex-direction: column; gap: 14px; }
+
+.meter-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.meter-label { font-size: 13px; color: var(--text-dim); }
+.meter-value { font-size: 14px; font-weight: 600; }
+
+/* identical height, radius and inset on every bar, on every card */
+.track {
+  height: var(--bar-height);
+  border-radius: var(--radius-bar);
+  background: var(--track);
+  overflow: hidden;
+}
+.fill {
+  height: 100%;
+  border-radius: var(--radius-bar);
+  background: var(--neutral);
+  transition: width 320ms ease;
+  min-width: 0;
+}
+.fill[data-level="warn"] { background: var(--accent-warn); }
+.fill[data-level="alert"] { background: var(--accent-alert); }
+
+.meter-reset { font-size: 12px; color: var(--text-dim); margin-top: 6px; }
+
+/* skeleton state — never a blank tile */
+.skeleton .fill { width: 35%; opacity: 0.35; animation: pulse 1.4s ease-in-out infinite; }
+.skeleton .meter-value { color: var(--text-dim); }
+@keyframes pulse { 0%, 100% { opacity: 0.2; } 50% { opacity: 0.45; } }
+
+.repair {
+  margin-top: auto;
+  font-size: 13px;
+  color: var(--accent-warn);
+}
+
+.empty {
+  grid-column: 1 / -1;
+  background: var(--card);
+  border: 1px dashed var(--card-line);
+  border-radius: var(--radius);
+  padding: 32px var(--card-pad);
+  text-align: center;
+  color: var(--text-dim);
+}
+.empty strong { color: var(--text); display: block; margin-bottom: 6px; }
+
+/* ---- trend ---- */
+
+.trend { margin-top: 32px; }
+.trend h2 { font-size: 14px; color: var(--text-dim); font-weight: 500; margin: 0 0 12px; }
+.trend-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+.trend-card {
+  background: var(--card);
+  border: 1px solid var(--card-line);
+  border-radius: var(--radius);
+  padding: var(--card-pad);
+}
+.trend-card h3 { font-size: 14px; margin: 0 0 12px; font-weight: 600; }
+.trend-card svg { width: 100%; height: 72px; display: block; }
+.trend-legend { display: flex; gap: 16px; font-size: 12px; color: var(--text-dim); margin-top: 10px; }
+.legend-swatch { display: inline-block; width: 10px; height: 3px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+
+/* ---- footer ---- */
+
+.footer { margin-top: 40px; font-size: 13px; color: var(--text-dim); display: flex; gap: 8px; }
+.footer a { color: var(--text-dim); }
+.footer-sep { opacity: 0.5; }
+.health[data-status="ok"] { color: var(--text-dim); }
+.health[data-status="down"] { color: var(--accent-alert); }

@@ -1,0 +1,93 @@
+# Claudex — Zerops build & run definition.
+#
+# Three setups off one repository:
+#   api       – Fastify HTTP service (public, subdomain-enabled)
+#   worker    – background usage poller, same build artifact, different entrypoint
+#   dashboard – static web dashboard served by nginx
+#
+# The api and worker setups share an identical build so the poller can never drift
+# out of sync with the code that serves the numbers.
+
+zerops:
+  # ---------------------------------------------------------------- API
+  - setup: api
+    build:
+      base: nodejs@22
+      prepareCommands:
+        - npm install -g npm@latest
+      buildCommands:
+        - cd server && npm ci
+        - cd server && npm run build
+        # Drop dev dependencies from the artifact after compiling.
+        - cd server && npm prune --omit=dev
+      deployFiles:
+        - server/dist
+        - server/node_modules
+        - server/package.json
+        - server/migrations
+        - dashboard
+      cache:
+        - server/node_modules
+    run:
+      base: nodejs@22
+      ports:
+        - port: 3000
+          httpSupport: true
+      envVariables:
+        NODE_ENV: production
+        PORT: 3000
+        HOST: 0.0.0.0
+      healthCheck:
+        httpGet:
+          port: 3000
+          path: /health
+      start: node server/dist/api.js
+
+  # ------------------------------------------------------------- WORKER
+  - setup: worker
+    build:
+      base: nodejs@22
+      buildCommands:
+        - cd server && npm ci
+        - cd server && npm run build
+        - cd server && npm prune --omit=dev
+      deployFiles:
+        - server/dist
+        - server/node_modules
+        - server/package.json
+        - server/migrations
+      cache:
+        - server/node_modules
+    run:
+      base: nodejs@22
+      ports:
+        - port: 3000
+          httpSupport: false
+      envVariables:
+        NODE_ENV: production
+        PORT: 3000
+        HOST: 0.0.0.0
+      healthCheck:
+        httpGet:
+          port: 3000
+          path: /health
+      start: node server/dist/worker.js
+
+  # ---------------------------------------------------------- DASHBOARD
+  - setup: dashboard
+    build:
+      base: nodejs@22
+      buildCommands:
+        - echo "static dashboard — no build step, that is the point"
+      deployFiles:
+        - dashboard/~
+    run:
+      base: nginx@1.22
+      ports:
+        - port: 80
+          httpSupport: true
+      documentRoot: dashboard
+      healthCheck:
+        httpGet:
+          port: 80
+          path: /index.html
