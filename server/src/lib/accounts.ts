@@ -28,7 +28,7 @@ export async function createAccountWithDevice(
 export async function addDevice(
   accountId: string,
   platform: string,
-  label: string | null,
+  label: string | null | undefined,
 ): Promise<{ deviceId: string; deviceSecret: string }> {
   const deviceSecret = newToken(32);
   const res = await query<{ id: string }>(

@@ -58,12 +58,15 @@ async function requireAccountId(req: FastifyRequest, reply: FastifyReply): Promi
 const pairBody = z.object({
   provider: z.enum(PROVIDERS),
   sessionToken: z.string().min(8).max(8192),
-  /** Omit on first pair; the server mints a new account and device. */
-  deviceSecret: z.string().min(16).optional(),
-  platform: z.string().max(40).optional(),
-  label: z.string().max(80).optional(),
+  // `.nullish()` rather than `.optional()` throughout: clients legitimately send an
+  // explicit null for "I don't have one yet" (the first pair has no device secret),
+  // and rejecting that is a validation bug, not a safety property.
+  /** Omit or null on first pair; the server mints a new account and device. */
+  deviceSecret: z.string().min(16).nullish(),
+  platform: z.string().max(40).nullish(),
+  label: z.string().max(80).nullish(),
   /** Pairing ChatGPT also links Codex by default — same account session. */
-  linkCodex: z.boolean().optional(),
+  linkCodex: z.boolean().nullish(),
 });
 
 export async function registerV1(app: FastifyInstance): Promise<void> {
@@ -157,7 +160,7 @@ export async function registerV1(app: FastifyInstance): Promise<void> {
 
   app.post('/v1/pair/redeem', async (req, reply) => {
     const body = z
-      .object({ code: z.string().min(4).max(32), platform: z.string().max(40).optional(), label: z.string().max(80).optional() })
+      .object({ code: z.string().min(4).max(32), platform: z.string().max(40).nullish(), label: z.string().max(80).nullish() })
       .safeParse(req.body);
     if (!body.success) return reply.code(400).send({ error: 'bad_request' });
     const device = await redeemPairingCode(body.data.code, body.data.platform ?? 'unknown', body.data.label ?? null);

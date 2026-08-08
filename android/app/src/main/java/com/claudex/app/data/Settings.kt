@@ -37,6 +37,10 @@ object SettingsStore {
     val json = Json {
         ignoreUnknownKeys = true
         encodeDefaults = true
+        // Omit null fields entirely rather than sending `"deviceSecret": null`.
+        // On a first pair there is no device secret yet, and an explicit null is a
+        // different thing from an absent field to most request validators.
+        explicitNulls = false
     }
 
     fun settings(context: Context): Flow<ClaudexSettings> =
