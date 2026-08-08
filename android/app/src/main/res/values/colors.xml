@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The entire Claudex palette: one neutral plus two accents, and the restrained
+  surfaces they sit on. The widget spec caps it here deliberately — the bar fill
+  carries all of the signal, so nothing else is allowed to compete with it.
+-->
+<resources>
+    <!-- neutral (under 60%) -->
+    <color name="claudex_neutral">#FF7C8798</color>
+    <!-- accent 1: warning (60-85%) -->
+    <color name="claudex_warn">#FFD9903F</color>
+    <!-- accent 2: alert (85%+) -->
+    <color name="claudex_alert">#FFE0563A</color>
+
+    <!-- surfaces -->
+    <color name="claudex_bg">#E60C0E12</color>
+    <color name="claudex_card">#FF14171D</color>
+    <color name="claudex_card_line">#FF232833</color>
+    <color name="claudex_track">#FF232833</color>
+    <color name="claudex_text">#FFEEF1F6</color>
+    <color name="claudex_text_dim">#FF98A1B0</color>
+
+    <color name="ic_launcher_background">#FF0C0E12</color>
+</resources>

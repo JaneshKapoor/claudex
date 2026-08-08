@@ -13,7 +13,7 @@
     "start:worker": "node dist/worker.js",
     "dev:api": "tsx watch src/api.ts",
     "dev:worker": "tsx watch src/worker.ts",
-    "migrate": "node dist/lib/migrate-cli.js",
+    "selftest": "node scripts/selftest.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The bar track. Radius is deliberately larger than the bar height so every bar
+     is a perfect pill, at any bar height, on every card. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@color/claudex_track" />
+    <corners android:radius="100dp" />
+</shape>

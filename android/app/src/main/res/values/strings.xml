@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Claudex</string>
+    <string name="widget_label">Claudex Usage</string>
+    <string name="widget_description">Session and weekly caps for Claude, ChatGPT and Codex.</string>
+    <string name="pair_title">Sign in</string>
+</resources>
