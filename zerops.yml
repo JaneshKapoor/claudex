@@ -47,6 +47,10 @@ zerops:
         S3_ACCESS_KEY_ID: ${storage_accessKeyId}
         S3_SECRET_ACCESS_KEY: ${storage_secretAccessKey}
         CACHE_TTL_SECONDS: "1800"
+        # Used to build pairing QR links. The API serves the dashboard at / too,
+        # so a single URL is enough even if the dashboard service is down.
+        PUBLIC_BASE_URL: https://api-2b9b-3000.prg1.zerops.app
+        DASHBOARD_URL: https://api-2b9b-3000.prg1.zerops.app
       healthCheck:
         httpGet:
           port: 3000

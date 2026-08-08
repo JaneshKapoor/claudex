@@ -18,7 +18,7 @@ android {
 
         // The API base URL is configurable in-app; this is only the initial value
         // shown in the setup screen, so the APK survives the backend moving.
-        buildConfigField("String", "DEFAULT_API_BASE_URL", "\"https://api-claudex.prg1.zerops.app\"")
+        buildConfigField("String", "DEFAULT_API_BASE_URL", "\"https://api-2b9b-3000.prg1.zerops.app\"")
     }
 
     buildTypes {
