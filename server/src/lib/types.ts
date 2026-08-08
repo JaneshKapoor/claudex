@@ -52,11 +52,23 @@ export function clampPct(value: unknown): number | null {
   return Math.max(0, Math.min(100, Math.round(n * 10) / 10));
 }
 
-/** Providers variously report 0-1 fractions or 0-100 percentages. */
+/**
+ * Providers variously report 0-1 fractions or 0-100 percentages under the same
+ * key names, so this has to be disambiguated by value.
+ *
+ * Only values strictly between 0 and 1 can be fractions — anything at 1 or above
+ * is already a percentage. The earlier rule (`n <= 1` means fraction) turned
+ * claude.ai's "1" (one percent) into 100%, which read as a maxed-out weekly cap
+ * when barely any of it had been used.
+ *
+ * The residual ambiguity is a true fraction of exactly 1.0 (i.e. 100%), which is
+ * indistinguishable from 1%. No provider observed so far reports full usage that
+ * way, and under-reporting there is caught by the next reading.
+ */
 export function fractionToPct(value: unknown): number | null {
   const n = typeof value === 'string' ? Number(value) : value;
   if (typeof n !== 'number' || !Number.isFinite(n)) return null;
-  return clampPct(n <= 1 ? n * 100 : n);
+  return clampPct(n > 0 && n < 1 ? n * 100 : n);
 }
 
 export function toIso(value: unknown): string | null {

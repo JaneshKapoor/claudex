@@ -68,6 +68,18 @@ check('converts a 0-1 fraction to a percentage', claude?.sessionPct === 17, JSON
 check('classifies seven_day as weekly', claude?.weeklyPct === 63);
 check('keeps the absolute reset timestamp', claude?.weeklyResetAt === '2030-01-05T00:00:00.000Z');
 
+console.log('\nparser — fraction vs percentage disambiguation');
+// Regression: claude.ai reports utilization as a percentage, so 1 means one
+// percent. Treating "<= 1" as a fraction rendered that as a maxed-out 100% bar.
+const onePercent = usageFromPayload({
+  five_hour: { utilization: 0, resets_at: '2030-01-01T00:00:00Z' },
+  seven_day: { utilization: 1, resets_at: '2030-01-05T00:00:00Z' },
+});
+check('utilization of 1 is one percent, not 100%', onePercent?.weeklyPct === 1, JSON.stringify(onePercent));
+check('utilization of 0 stays 0', onePercent?.sessionPct === 0);
+check('a true 0-1 fraction is still scaled up', usageFromPayload({ five_hour: { utilization: 0.42 } })?.sessionPct === 42);
+check('a plain percentage above 1 is left alone', usageFromPayload({ five_hour: { utilization: 37 } })?.sessionPct === 37);
+
 console.log('\nparser — resilience');
 check('unknown shapes return null rather than throwing', usageFromPayload({ hello: 'world' }) === null);
 check('null payload returns null', usageFromPayload(null) === null);

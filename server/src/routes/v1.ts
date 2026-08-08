@@ -230,6 +230,33 @@ export async function registerV1(app: FastifyInstance): Promise<void> {
     return reply.send({ removed });
   });
 
+  /**
+   * The provider's own last payload, exactly as received, next to what we parsed
+   * out of it. This is the tool for diagnosing a wrong *number* (as opposed to a
+   * failed fetch): if the bar disagrees with the provider's own usage page, this
+   * shows whether we misread the payload or the payload itself changed.
+   */
+  app.get('/v1/links/raw', async (req, reply) => {
+    const accountId = await requireAccountId(req, reply);
+    if (!accountId) return;
+    const p = (req.query as { provider?: string }).provider;
+    if (!p || !isProvider(p)) {
+      return reply.code(400).send({ error: 'bad_provider', detail: 'provider must be claude, chatgpt or codex' });
+    }
+    const res = await query(
+      `SELECT provider, session_pct, weekly_pct, session_reset_at, weekly_reset_at, captured_at, raw
+         FROM usage_snapshots
+        WHERE account_id = $1 AND provider = $2
+        ORDER BY captured_at DESC
+        LIMIT 1`,
+      [accountId, p],
+    );
+    if (res.rowCount === 0) {
+      return reply.code(404).send({ error: 'no_snapshot', detail: 'this provider has not produced a reading yet' });
+    }
+    return reply.send(res.rows[0]);
+  });
+
   /** Link diagnostics — makes an endpoint change vs an expired token visible. */
   app.get('/v1/links', async (req, reply) => {
     const accountId = await requireAccountId(req, reply);
