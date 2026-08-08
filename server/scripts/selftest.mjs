@@ -80,6 +80,45 @@ check('utilization of 0 stays 0', onePercent?.sessionPct === 0);
 check('a true 0-1 fraction is still scaled up', usageFromPayload({ five_hour: { utilization: 0.42 } })?.sessionPct === 42);
 check('a plain percentage above 1 is left alone', usageFromPayload({ five_hour: { utilization: 37 } })?.sessionPct === 37);
 
+console.log('\nparser — real captured payloads');
+// Trimmed from an actual claude.ai response. Note it reports the same numbers
+// twice (limits[] and five_hour/seven_day) and also carries a `spend.percent`
+// credits meter that must NOT be mistaken for a usage window.
+const claudeReal = {
+  spend: { percent: 19, severity: 'normal' },
+  limits: [
+    { kind: 'session', group: 'session', percent: 3, resets_at: '2026-08-08T23:40:00.000179+00:00' },
+    { kind: 'weekly_all', group: 'weekly', percent: 1, resets_at: '2026-08-15T18:00:00.000201+00:00' },
+  ],
+  five_hour: { resets_at: '2026-08-08T23:40:00.000179+00:00', utilization: 3 },
+  seven_day: { resets_at: '2026-08-15T18:00:00.000201+00:00', utilization: 1 },
+  extra_usage: { utilization: 19.21333333333333, used_credits: 1441 },
+};
+const claudeParsed = usageFromPayload(claudeReal);
+check('claude session is 3%', claudeParsed?.sessionPct === 3, JSON.stringify(claudeParsed));
+check('claude weekly is 1%', claudeParsed?.weeklyPct === 1);
+check('the credits meter is not mistaken for a usage window',
+  claudeParsed?.sessionPct !== 19 && claudeParsed?.weeklyPct !== 19);
+
+// Trimmed from an actual chatgpt.com response on a "go" plan: a single 30-day
+// window, no weekly. The window length must win over the key name "primary".
+const chatgptReal = {
+  plan_type: 'go',
+  rate_limit: {
+    primary_window: {
+      reset_at: 1788809286,
+      used_percent: 0,
+      reset_after_seconds: 2592000,
+      limit_window_seconds: 2592000,
+    },
+    secondary_window: null,
+  },
+};
+const chatgptParsed = usageFromPayload(chatgptReal);
+check('a 30-day window is not reported as a 5-hour session',
+  chatgptParsed?.sessionPct === null, JSON.stringify(chatgptParsed));
+check('the long window lands in the long-window slot', chatgptParsed?.weeklyPct === 0);
+
 console.log('\nparser — resilience');
 check('unknown shapes return null rather than throwing', usageFromPayload({ hello: 'world' }) === null);
 check('null payload returns null', usageFromPayload(null) === null);

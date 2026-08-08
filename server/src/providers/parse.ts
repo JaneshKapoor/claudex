@@ -37,7 +37,18 @@ const RESET_IN_KEYS = [
   'resets_in',
 ];
 const WINDOW_MIN_KEYS = ['window_minutes', 'windowMinutes', 'window_size_minutes'];
-const WINDOW_SEC_KEYS = ['window_seconds', 'windowSeconds'];
+const WINDOW_SEC_KEYS = [
+  'window_seconds',
+  'windowSeconds',
+  // chatgpt.com states the window this way; missing it meant a 30-day window was
+  // classified by its key name ("primary_window") and shown as a 5-hour session.
+  'limit_window_seconds',
+  'limitWindowSeconds',
+  'window_size_seconds',
+];
+
+/** Fields a provider may use to name a window from the inside. */
+const LABEL_KEYS = ['kind', 'group', 'name', 'window', 'type', 'id', 'period'];
 
 function isObject(v: unknown): v is Json {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -86,7 +97,11 @@ export function collectWindows(payload: unknown, path = '$', depth = 0, out: Win
       const ws = firstKey(payload, WINDOW_SEC_KEYS);
       const windowMinutes =
         typeof wm === 'number' ? wm : typeof ws === 'number' ? Math.round(ws / 60) : null;
-      out.push({ pct, resetAt, windowMinutes, path });
+      // Some providers name the window inside the object (Claude's limits[] carries
+      // kind: "session" / "weekly_all") rather than in the key path. Fold any such
+      // label into the text we classify against.
+      const labels = LABEL_KEYS.map((k) => payload[k]).filter((v): v is string => typeof v === 'string');
+      out.push({ pct, resetAt, windowMinutes, path: [path, ...labels].join(' ') });
     }
   }
 
