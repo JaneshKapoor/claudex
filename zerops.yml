@@ -97,8 +97,10 @@ zerops:
       base: nodejs@22
       buildCommands:
         - echo "static dashboard — no build step, that is the point"
+      # Deploy the folder itself (not `dashboard/~`, which would flatten its
+      # contents to the artifact root and leave documentRoot pointing at nothing).
       deployFiles:
-        - dashboard/~
+        - dashboard
     run:
       base: nginx@1.22
       ports:
