@@ -35,7 +35,7 @@ as an app update to every device.
   reads session cookie)     │   (Fastify)   │        │              │  encrypted tokens,
                             └───────┬───────┘        └──────────────┘  snapshot history
  Android widget ──/v1/usage─────────┤                ┌──────────────┐
- Web dashboard ──/v1/usage──────────┤◀──────────────▶│  KeyDB       │  read cache +
+ Web dashboard ──/v1/usage──────────┤◀──────────────▶│  Valkey       │  read cache +
                                     │                └──────────────┘  poller lock
                             ┌───────▼───────┐        ┌──────────────┐
                             │    Worker     │───────▶│  Object      │  CSV exports,
@@ -116,7 +116,7 @@ to repair a module when a provider changes something.
 ## Local development
 
 ```bash
-docker compose up -d                  # Postgres + KeyDB
+docker compose up -d                  # Postgres + Valkey
 cd server
 cp .env.example .env                  # then set CLAUDEX_ENCRYPTION_KEY
 npm ci && npm run build
@@ -133,5 +133,5 @@ cd android
 
 ## Deploying to Zerops
 
-See [docs/DEPLOY.md](docs/DEPLOY.md) — one project import creates Postgres, KeyDB,
+See [docs/DEPLOY.md](docs/DEPLOY.md) — one project import creates Postgres, Valkey,
 object storage, the API, the worker and the dashboard.

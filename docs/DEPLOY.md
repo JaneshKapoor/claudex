@@ -23,14 +23,29 @@ This creates, with the right dependencies wired between them:
 | Service | Type | Why |
 | --- | --- | --- |
 | `db` | postgresql@16 | accounts, encrypted tokens, usage snapshot history |
-| `cache` | keydb@6 | read cache for the widget/dashboard, and the poller lock |
+| `cache` | valkey@7.2 | read cache for the widget/dashboard, and the poller lock |
 | `storage` | object-storage | usage CSV exports and pairing QR code PNGs |
 | `api` | nodejs@22 | Fastify API, public subdomain |
 | `worker` | nodejs@22 | background poller, no public access |
 | `dashboard` | nginx@1.22 | the static dashboard, public subdomain |
 
-`CLAUDEX_ENCRYPTION_KEY` is generated at import time and the worker inherits the
-API's value by reference, so both sides can read the same stored tokens.
+## 1b. Set the encryption key by hand (required)
+
+The `<@generateRandomString(<64>)>` placeholder in the import YAML is **not**
+expanded for `envSecrets` — the literal string is stored, and the API refuses to
+boot with it. zcli has no env-var command, so set it in the GUI.
+
+Generate a key:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+Then in the Zerops GUI, for **both** the `api` and `worker` services:
+**Environment variables → Secret variables →** set `CLAUDEX_ENCRYPTION_KEY` to that
+value → **Save** → **Restart**.
+
+The two must be **byte-identical**: the worker writes tokens the API reads back.
 
 > **Do not rotate that key later.** Every stored provider token is encrypted with
 > it; changing it forces every account to re-pair.
@@ -43,7 +58,14 @@ zcli push --serviceId <worker-service-id>    --setup worker
 zcli push --serviceId <dashboard-service-id> --setup dashboard
 ```
 
-Service IDs are in the Zerops GUI, or `zcli service list`.
+Service IDs are in the Zerops GUI, or `zcli service list -P <project-id>`.
+`zcli push` also accepts the service **name** directly, e.g. `zcli push api -P <project-id> --setup api`.
+
+> **Gotcha:** the `run.envVariables` block in `zerops.yml` *replaces* a service's
+> env variables on every deploy. That is why the `${db_connectionString}` /
+> `${cache_connectionString}` references live in `zerops.yml` and not only in the
+> import YAML — anything set only at import time is wiped by the first push.
+> `envSecrets` are separate and are not touched by a deploy.
 
 Alternatively connect the GitHub repo (`JaneshKapoor/claudex`) to each service in
 the GUI and enable build-on-push — the `zerops.yml` at the repo root already
@@ -98,9 +120,9 @@ enter that code in the dashboard's **Account** panel (or open
   container killed and restarted.
 - The API also serves a copy of the dashboard at `/`, so even if the `dashboard`
   service is down the API URL alone still demonstrates the whole product.
-- The worker holds a KeyDB lock for a whole poll cycle, so a redeploy overlapping
+- The worker holds a Valkey lock for a whole poll cycle, so a redeploy overlapping
   a running cycle cannot double-poll the providers.
-- Reads never touch a provider — they come from KeyDB, falling back to Postgres.
+- Reads never touch a provider — they come from Valkey, falling back to Postgres.
   A provider being slow or down cannot slow the judged URL.
 
 ## Troubleshooting

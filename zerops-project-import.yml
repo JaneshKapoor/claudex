@@ -24,9 +24,11 @@ services:
     mode: NON_HA
     priority: 100
 
-  # --------------------------------------------------- KeyDB (Redis API)
+  # -------------------------------------------------- Valkey (Redis API)
+  # Exposes ${cache_connectionString} as redis://default:<pw>@cache.zerops:6379,
+  # which the server's env loader consumes directly.
   - hostname: cache
-    type: keydb@6
+    type: valkey@7.2
     mode: NON_HA
     priority: 100
 
