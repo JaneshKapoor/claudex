@@ -17,7 +17,7 @@
 // visit Settings, and look for the request whose response carries the percentages.
 // Add its path to USAGE_ENDPOINTS below; the parser is shape-tolerant.
 
-import { getFirstJson, getJson, AuthRejected, FetchFailed } from './http.js';
+import { getFirstJson, getJson, AuthRejected, FetchFailed, PAIRED_WEBVIEW_UA } from './http.js';
 import { usageFromPayload } from './parse.js';
 import type { ProviderFetchResult, ProviderModule } from '../lib/types.js';
 import { logAuthFailure, logFetchFailure, log } from '../lib/log.js';
@@ -36,15 +36,25 @@ function looksLikeJwt(token: string): boolean {
   return /^ey[A-Za-z0-9_-]+\./.test(token.trim());
 }
 
+/**
+ * The paired value is the whole cookie jar captured at login (Cloudflare's
+ * clearance cookies matter, not just the session token), a bare session token, or
+ * an already-exchanged bearer JWT. Normalise to a Cookie header.
+ */
+export function toCookieHeader(token: string): string {
+  const trimmed = token.trim();
+  return trimmed.includes('=') ? trimmed : `__Secure-next-auth.session-token=${trimmed}`;
+}
+
 /** Cookie -> bearer exchange, mirroring what the web client does on page load. */
 export async function resolveAccessToken(token: string): Promise<string> {
   const trimmed = token.trim();
   if (looksLikeJwt(trimmed)) return trimmed;
 
-  const cookie = trimmed.includes('=') ? trimmed : `__Secure-next-auth.session-token=${trimmed}`;
   const { json } = await getJson(`${ORIGIN}/api/auth/session`, {
-    cookie,
+    cookie: toCookieHeader(trimmed),
     referer: `${ORIGIN}/`,
+    'user-agent': PAIRED_WEBVIEW_UA,
   });
   const accessToken = (json as { accessToken?: unknown } | null)?.accessToken;
   if (typeof accessToken !== 'string' || accessToken.length === 0) {
@@ -54,18 +64,63 @@ export async function resolveAccessToken(token: string): Promise<string> {
   return accessToken;
 }
 
+/**
+ * Builds the auth strategies to try, best first.
+ *
+ * The bearer token is what the web app uses, but the exchange that produces it can
+ * fail on its own (Cloudflare challenge, a moved /api/auth/session) while the
+ * cookies remain perfectly valid. Treating that as an immediate auth failure would
+ * tell the user to re-pair a session that is actually fine, so the raw cookie jar
+ * is kept as a second attempt.
+ */
+async function authStrategies(
+  token: string,
+  ctx: { accountId: string },
+): Promise<Array<{ label: string; headers: Record<string, string> }>> {
+  const cookie = toCookieHeader(token);
+  const base: Record<string, string> = {
+    cookie,
+    referer: `${ORIGIN}/`,
+    origin: ORIGIN,
+    'user-agent': PAIRED_WEBVIEW_UA,
+  };
+
+  const strategies: Array<{ label: string; headers: Record<string, string> }> = [];
+  try {
+    const accessToken = await resolveAccessToken(token);
+    strategies.push({ label: 'bearer', headers: { ...base, authorization: `Bearer ${accessToken}` } });
+  } catch (err) {
+    log.warn(
+      { provider: 'chatgpt', accountId: ctx.accountId, detail: (err as Error).message },
+      'chatgpt bearer exchange failed, falling back to cookie auth',
+    );
+  }
+  strategies.push({ label: 'cookie', headers: base });
+  return strategies;
+}
+
 export async function fetchChatGptUsage(
   token: string,
   ctx: { accountId: string },
 ): Promise<ProviderFetchResult> {
   try {
-    const accessToken = await resolveAccessToken(token);
-    const { outcome, url } = await getFirstJson(USAGE_ENDPOINTS, {
-      authorization: `Bearer ${accessToken}`,
-      referer: `${ORIGIN}/`,
-      origin: ORIGIN,
-    });
+    const strategies = await authStrategies(token, ctx);
 
+    let lastError: Error | null = null;
+    let attempt: { outcome: Awaited<ReturnType<typeof getFirstJson>>['outcome']; url: string } | null = null;
+
+    for (const strategy of strategies) {
+      try {
+        attempt = await getFirstJson(USAGE_ENDPOINTS, strategy.headers);
+        break;
+      } catch (err) {
+        lastError = err as Error;
+        // Keep going: an auth rejection on the bearer path may still succeed on cookies.
+      }
+    }
+    if (!attempt) throw lastError ?? new FetchFailed('no chatgpt auth strategy succeeded');
+
+    const { outcome, url } = attempt;
     const usage = usageFromPayload(outcome.json);
     if (!usage) {
       logFetchFailure({

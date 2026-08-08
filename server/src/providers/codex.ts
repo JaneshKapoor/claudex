@@ -15,9 +15,9 @@
 // If a Codex link is created without its own token it reuses the ChatGPT link's
 // token, since it is the same underlying account session.
 
-import { getFirstJson, AuthRejected, FetchFailed } from './http.js';
+import { getFirstJson, AuthRejected, FetchFailed, PAIRED_WEBVIEW_UA } from './http.js';
 import { usageFromPayload, usageFromHeaders } from './parse.js';
-import { resolveAccessToken } from './chatgpt.js';
+import { resolveAccessToken, toCookieHeader } from './chatgpt.js';
 import type { ProviderFetchResult, ProviderModule } from '../lib/types.js';
 import { logAuthFailure, logFetchFailure, log } from '../lib/log.js';
 
@@ -40,12 +40,22 @@ export async function fetchCodexUsage(
   ctx: { accountId: string },
 ): Promise<ProviderFetchResult> {
   try {
-    const accessToken = await resolveAccessToken(token);
     const headers: Record<string, string> = {
-      authorization: `Bearer ${accessToken}`,
+      cookie: toCookieHeader(token),
       referer: `${ORIGIN}/`,
       origin: ORIGIN,
+      'user-agent': PAIRED_WEBVIEW_UA,
     };
+    // Same reasoning as the ChatGPT module: a failed bearer exchange does not mean
+    // the session is dead, so fall through to cookie auth rather than giving up.
+    try {
+      headers['authorization'] = `Bearer ${await resolveAccessToken(token)}`;
+    } catch (err) {
+      log.warn(
+        { provider: 'codex', accountId: ctx.accountId, detail: (err as Error).message },
+        'codex bearer exchange failed, falling back to cookie auth',
+      );
+    }
     for (const [k, v] of Object.entries(CODEX_HEADERS)) {
       if (v) headers[k] = v;
     }

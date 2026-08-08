@@ -10,6 +10,16 @@ import { request } from 'undici';
 export const BROWSER_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
+/**
+ * Byte-identical to the User-Agent the Android pairing WebView uses (see
+ * PairActivity.MOBILE_UA). Cloudflare binds its clearance cookie to the UA that
+ * obtained it, so replaying those cookies from a different UA gets challenged —
+ * which would surface as a puzzling auth failure right after a good login.
+ * Used by the providers we replay a full cookie jar for.
+ */
+export const PAIRED_WEBVIEW_UA =
+  'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36';
+
 export interface HttpOutcome {
   status: number;
   headers: Record<string, string | string[] | undefined>;

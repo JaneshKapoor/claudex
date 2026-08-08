@@ -14,6 +14,7 @@ import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.WebChromeClient
 import android.webkit.WebSettings
+import android.webkit.WebStorage
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
@@ -120,7 +121,17 @@ class PairActivity : ComponentActivity() {
         CookieManager.getInstance().apply {
             setAcceptCookie(true)
             setAcceptThirdPartyCookies(webView, true)
+            // Start every pairing from a clean jar.
+            //
+            // Re-pairing usually means the stored session died, and the dead cookie is
+            // still sitting in the WebView. Without this, the very first cookie check
+            // finds that stale value, "succeeds" instantly, and re-pairs the same broken
+            // token — the screen just bounces back before the user can log in.
+            // Nothing is lost by clearing: working tokens already live on the backend.
+            removeAllCookies(null)
+            flush()
         }
+        WebStorage.getInstance().deleteAllData()
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -245,10 +256,15 @@ class PairActivity : ComponentActivity() {
                 val chunks = jar.keys
                     .filter { it.startsWith("__Secure-next-auth.session-token.") }
                     .sortedBy { it.substringAfterLast('.').toIntOrNull() ?: 0 }
-                when {
+                val sessionToken = when {
                     chunks.isNotEmpty() -> chunks.joinToString("") { jar[it].orEmpty() }
-                    else -> jar["__Secure-next-auth.session-token"]?.takeIf { it.isNotBlank() }
+                    else -> jar["__Secure-next-auth.session-token"]
                 }
+                // Presence of the session token is how we know login finished — but we
+                // hand over the whole jar. chatgpt.com sits behind Cloudflare, and the
+                // session token alone gets challenged without the clearance cookies
+                // that were issued alongside it.
+                if (sessionToken.isNullOrBlank()) null else raw
             }
         }
     }
