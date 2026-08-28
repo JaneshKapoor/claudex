@@ -38,7 +38,10 @@ zerops:
       # YAML. (CLAUDEX_ENCRYPTION_KEY is an envSecret and is not touched by this.)
       envVariables:
         NODE_ENV: production
-        PORT: 3000
+        # PORT is deliberately absent: Zerops reserves it and now rejects the whole
+        # deploy with `userDataUseOfSystemKey` if it is set here. The platform
+        # injects it from the `ports` block above, and env.ts falls back to 3000
+        # anyway, so both paths land on the same port.
         HOST: 0.0.0.0
         DATABASE_URL: ${db_connectionString}
         REDIS_URL: ${cache_connectionString}
@@ -79,7 +82,10 @@ zerops:
           httpSupport: false
       envVariables:
         NODE_ENV: production
-        PORT: 3000
+        # PORT is deliberately absent: Zerops reserves it and now rejects the whole
+        # deploy with `userDataUseOfSystemKey` if it is set here. The platform
+        # injects it from the `ports` block above, and env.ts falls back to 3000
+        # anyway, so both paths land on the same port.
         HOST: 0.0.0.0
         DATABASE_URL: ${db_connectionString}
         REDIS_URL: ${cache_connectionString}
