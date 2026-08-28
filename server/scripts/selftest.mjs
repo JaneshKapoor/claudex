@@ -13,6 +13,8 @@ const { encryptSecret, decryptSecret, hashDeviceSecret, newPairingCode } = await
 const { usageFromPayload, usageFromHeaders, classifyWindows, collectWindows } = await import(
   '../dist/providers/parse.js'
 );
+const { CODEX_USAGE_ENDPOINTS } = await import('../dist/providers/codex.js');
+const { CHATGPT_USAGE_ENDPOINTS } = await import('../dist/providers/chatgpt.js');
 
 let failures = 0;
 function check(name, condition, detail = '') {
@@ -131,6 +133,47 @@ check('window length wins over key name', (() => {
   const w = collectWindows({ primary: { used_percent: 50, window_minutes: 10080 } });
   return classifyWindows(w).weekly?.pct === 50;
 })());
+
+console.log('\nprovider endpoint ordering');
+// Regression: /backend-api/wham/usage answers for the whole account, so whichever
+// module asks it first gets the same payload. With it ordered first for Codex, the
+// Codex-scoped path was never reached and the Codex card silently duplicated the
+// ChatGPT card — two identical snapshots, same numbers, same second.
+check('codex asks its own endpoint before the shared account one',
+  CODEX_USAGE_ENDPOINTS[0]?.includes('/codex/'), CODEX_USAGE_ENDPOINTS[0]);
+check('codex still falls back to the shared account endpoint',
+  CODEX_USAGE_ENDPOINTS.some((u) => u.includes('/wham/usage')));
+check('chatgpt asks the shared account endpoint first',
+  CHATGPT_USAGE_ENDPOINTS[0]?.includes('/wham/usage'), CHATGPT_USAGE_ENDPOINTS[0]);
+check('the two modules do not lead with the same path',
+  CODEX_USAGE_ENDPOINTS[0] !== CHATGPT_USAGE_ENDPOINTS[0]);
+
+console.log('\nparser — real chatgpt.com account payload (go plan)');
+// Captured verbatim from this deployment's stored snapshot. A "go" plan exposes a
+// single 30-day window and no second one, so Session is legitimately absent —
+// the card reading "n/a" here is the provider's answer, not a fetch failure.
+const goPlanReal = {
+  plan_type: 'go',
+  rate_limit: {
+    allowed: true,
+    limit_reached: false,
+    primary_window: {
+      reset_at: 1789674876,
+      used_percent: 0,
+      reset_after_seconds: 2592000,
+      limit_window_seconds: 2592000,
+    },
+    secondary_window: null,
+  },
+  credits: { balance: null, unlimited: false, has_credits: false },
+  spend_control: { reached: false, individual_limit: null },
+  rate_limit_reset_credits: { available_count: 0, applicable_available_count: 0 },
+};
+const goParsed = usageFromPayload(goPlanReal);
+check('the 30-day window is not reported as a 5-hour session', goParsed?.sessionPct === null, JSON.stringify(goParsed));
+check('the 30-day window lands in the long-window slot', goParsed?.weeklyPct === 0);
+check('the credits counters are not mistaken for usage windows',
+  goParsed?.sessionPct !== 0 || goParsed?.sessionResetAt === null);
 
 console.log('\nparser — Codex CLI response headers');
 const fromHeaders = usageFromHeaders({

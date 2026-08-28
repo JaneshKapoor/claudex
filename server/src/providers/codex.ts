@@ -23,10 +23,20 @@ import { logAuthFailure, logFetchFailure, log } from '../lib/log.js';
 
 const ORIGIN = 'https://chatgpt.com';
 
-const USAGE_ENDPOINTS = [
-  `${ORIGIN}/backend-api/wham/usage`,
+// Codex-scoped first, deliberately. /backend-api/wham/usage answers for the
+// *account*, so when it is tried first it always succeeds and returns the exact
+// payload the ChatGPT module already got — the Codex card then silently mirrors
+// the ChatGPT card instead of reporting Codex's own windows, and the
+// Codex-scoped candidate below is never reached. Both paths exist (each answers
+// 401 unauthenticated rather than 404), so ordering is the only thing that
+// decides which numbers the card shows. wham/usage stays as the fallback.
+export const USAGE_ENDPOINTS = [
   `${ORIGIN}/backend-api/codex/usage`,
+  `${ORIGIN}/backend-api/wham/usage`,
 ];
+
+/** Alias so the self-test can assert the ordering without importing two `USAGE_ENDPOINTS`. */
+export const CODEX_USAGE_ENDPOINTS = USAGE_ENDPOINTS;
 
 /** Headers the Codex CLI identifies itself with; the response differs without them. */
 const CODEX_HEADERS: Record<string, string> = {

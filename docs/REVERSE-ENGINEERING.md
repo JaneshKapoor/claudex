@@ -59,6 +59,38 @@ Put the new path **first**. Leave the old ones — they cost nothing (a failed
 candidate is skipped in milliseconds) and they keep working for anyone the change
 has not rolled out to yet.
 
+### One exception: ChatGPT and Codex share an origin
+
+`/backend-api/wham/usage` answers for the whole **account**, not for one product.
+Whichever module asks it first gets a perfectly valid 200 — so if Codex asks it
+before `/backend-api/codex/usage`, Codex never reaches its own endpoint and its
+card silently mirrors the ChatGPT card. There is no error to notice: two links,
+two snapshots, identical numbers, same second.
+
+So the rule for these two is **narrowest scope first**: Codex leads with
+`/backend-api/codex/usage`, ChatGPT leads with `/backend-api/wham/usage`, and the
+shared path stays on Codex's list only as a fallback. `npm run selftest` asserts
+this ordering.
+
+If you suspect a card is duplicating another, compare the stored payloads
+directly — this is what the check looks like:
+
+```bash
+curl -s "https://<api>/v1/links/raw?accountId=<uuid>&provider=chatgpt"
+curl -s "https://<api>/v1/links/raw?accountId=<uuid>&provider=codex"
+```
+
+Byte-identical `raw` objects mean an endpoint-scope collision, not a parser bug.
+
+### Checking whether a path still exists
+
+An unauthenticated request separates "moved" from "needs auth" without a session:
+a live path answers **401**, a retired one answers **404**.
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" https://chatgpt.com/backend-api/codex/usage
+```
+
 Then confirm the parser still recognises the payload. Paste the real response into
 `server/scripts/selftest.mjs` as a new case and run:
 

@@ -24,13 +24,19 @@ import { logAuthFailure, logFetchFailure, log } from '../lib/log.js';
 
 const ORIGIN = 'https://chatgpt.com';
 
-const USAGE_ENDPOINTS = [
+// The first two are live (they answer 401 unauthenticated rather than 404); the
+// rest are retired paths kept as cheap insurance for anyone the change has not
+// rolled out to. A failed candidate costs one round trip and is skipped.
+export const USAGE_ENDPOINTS = [
   `${ORIGIN}/backend-api/wham/usage`,
   `${ORIGIN}/backend-api/wham/tasks/usage`,
   `${ORIGIN}/backend-api/subscription/usage`,
   `${ORIGIN}/backend-api/me/usage`,
   `${ORIGIN}/backend-api/conversation_limit`,
 ];
+
+/** Alias so the self-test can assert ordering without importing two `USAGE_ENDPOINTS`. */
+export const CHATGPT_USAGE_ENDPOINTS = USAGE_ENDPOINTS;
 
 function looksLikeJwt(token: string): boolean {
   return /^ey[A-Za-z0-9_-]+\./.test(token.trim());
